@@ -410,8 +410,9 @@ func (s *Store) FlushCollection(collection string) int {
 			removed++
 		}
 	}
+	itPrefix := fmt.Sprintf("it:%s:", collection)
 	for key := range s.iidToTerms {
-		if hasCollectionPrefix(key, collection) {
+		if len(key) >= len(itPrefix) && key[:len(itPrefix)] == itPrefix {
 			delete(s.iidToTerms, key)
 			removed++
 		}

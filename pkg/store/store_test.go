@@ -287,6 +287,37 @@ func TestListBuckets(t *testing.T) {
 	}
 }
 
+func TestFlushCollectionCleansIIDTerms(t *testing.T) {
+	s := newTestStore(t)
+	iid, _ := s.ResolveOID("col", "bkt", "obj1")
+	s.AddTermIID("col", "bkt", 100, iid, 1000)
+	s.AddIIDTerm("col", "bkt", iid, 100)
+	s.SetHashWord("col", "bkt", 100, "hello")
+
+	s.FlushCollection("col")
+
+	// iidToTerms entries must be cleaned up (regression: "it:" prefix is 3 chars)
+	terms := s.GetIIDTerms("col", "bkt", iid)
+	if len(terms) != 0 {
+		t.Errorf("expected 0 IID terms after FlushCollection, got %v", terms)
+	}
+
+	// hashToWord entries must also be cleaned up
+	_, ok := s.GetWordForHash("col", "bkt", 100)
+	if ok {
+		t.Error("expected hash-to-word mapping to be removed after FlushCollection")
+	}
+
+	// counters must be cleaned up
+	iid2, created := s.ResolveOID("col", "bkt", "obj2")
+	if !created {
+		t.Error("expected new OID after flush")
+	}
+	if iid2 == 0 {
+		t.Error("expected non-zero IID")
+	}
+}
+
 func TestGetTermIIDsReturnsNilForMissing(t *testing.T) {
 	s := newTestStore(t)
 	iids := s.GetTermIIDs("col", "bkt", 999)
