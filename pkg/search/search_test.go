@@ -184,6 +184,65 @@ func TestIntersectNoOverlap(t *testing.T) {
 	}
 }
 
+func TestQueryDeterministicOrdering(t *testing.T) {
+	eng, s, _ := setupEngine(t)
+
+	h := fnvHash("common")
+	for i := uint32(1); i <= 20; i++ {
+		iid, _ := s.ResolveOID("col", "bkt", fmt.Sprintf("doc%02d", i))
+		s.AddTermIID("col", "bkt", h, iid, 1000)
+	}
+
+	opts := QueryOptions{Limit: 5, Offset: 0}
+	first := eng.Query("col", "bkt", "common", opts)
+	for trial := 0; trial < 10; trial++ {
+		got := eng.Query("col", "bkt", "common", opts)
+		if len(got) != len(first) {
+			t.Fatalf("trial %d: length mismatch %d vs %d", trial, len(got), len(first))
+		}
+		for i := range first {
+			if got[i] != first[i] {
+				t.Fatalf("trial %d: non-deterministic ordering at index %d: %v vs %v", trial, i, got, first)
+			}
+		}
+	}
+}
+
+func TestQueryPaginationNoOverlap(t *testing.T) {
+	eng, s, _ := setupEngine(t)
+
+	h := fnvHash("common")
+	for i := uint32(1); i <= 10; i++ {
+		iid, _ := s.ResolveOID("col", "bkt", fmt.Sprintf("doc%02d", i))
+		s.AddTermIID("col", "bkt", h, iid, 1000)
+	}
+
+	page1 := eng.Query("col", "bkt", "common", QueryOptions{Limit: 5, Offset: 0})
+	page2 := eng.Query("col", "bkt", "common", QueryOptions{Limit: 5, Offset: 5})
+
+	seen := make(map[string]bool)
+	for _, oid := range page1 {
+		seen[oid] = true
+	}
+	for _, oid := range page2 {
+		if seen[oid] {
+			t.Errorf("pagination overlap: %s appears on both pages", oid)
+		}
+	}
+
+	// Together they should cover all 10 docs
+	all := make(map[string]bool)
+	for _, oid := range page1 {
+		all[oid] = true
+	}
+	for _, oid := range page2 {
+		all[oid] = true
+	}
+	if len(all) != 10 {
+		t.Errorf("expected 10 unique docs across 2 pages, got %d", len(all))
+	}
+}
+
 // fnvHash replicates the lexer's FNV-1a hash for test setup.
 func fnvHash(s string) uint32 {
 	const (

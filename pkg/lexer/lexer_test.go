@@ -230,3 +230,42 @@ func TestTokenizeSpecialChars(t *testing.T) {
 		t.Error("expected some tokens")
 	}
 }
+
+func TestApostropheStopwordsFiltered(t *testing.T) {
+	// Apostrophe-containing stopwords like "aren't" get split by the tokenizer
+	// into ["aren", "t"]. The fragment "aren" should still be filtered as a
+	// stopword to avoid polluting the index with noise.
+	tokens := TokenizeSimple("they aren't going to the store and we couldn't find it")
+	words := make(map[string]bool)
+	for _, tok := range tokens {
+		words[tok.Word] = true
+	}
+
+	// "aren", "couldn" should be filtered (split forms of "aren't", "couldn't")
+	noiseWords := []string{"aren", "couldn"}
+	for _, w := range noiseWords {
+		if words[w] {
+			t.Errorf("split-form stopword %q should have been filtered", w)
+		}
+	}
+
+	// Real words should remain
+	expectedWords := []string{"going", "store", "find"}
+	for _, w := range expectedWords {
+		if !words[w] {
+			t.Errorf("expected word %q to remain after filtering", w)
+		}
+	}
+}
+
+func TestSplitFormStopwords(t *testing.T) {
+	// Verify all split-form stopwords are recognized
+	fragments := []string{"aren", "couldn", "didn", "doesn", "don", "hadn",
+		"hasn", "haven", "isn", "mustn", "shan", "shouldn", "wasn",
+		"weren", "won", "wouldn", "ll", "ve", "re"}
+	for _, w := range fragments {
+		if !IsStopword(w) {
+			t.Errorf("expected %q to be recognized as a stopword", w)
+		}
+	}
+}

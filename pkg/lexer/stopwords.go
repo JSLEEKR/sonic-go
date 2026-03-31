@@ -36,8 +36,38 @@ var englishStopwords = map[string]struct{}{
 	"yourself": {}, "yourselves": {},
 }
 
+// splitFormStopwords contains the left-side fragments of apostrophe-containing
+// stopwords (e.g., "aren" from "aren't", "didn" from "didn't"). Because the
+// tokenizer splits on apostrophes, the original forms like "aren't" never match.
+// These fragments are common noise that should be filtered.
+var splitFormStopwords = map[string]struct{}{
+	"aren":    {}, // aren't
+	"couldn":  {}, // couldn't
+	"didn":    {}, // didn't
+	"doesn":   {}, // doesn't
+	"don":     {}, // don't
+	"hadn":    {}, // hadn't
+	"hasn":    {}, // hasn't
+	"haven":   {}, // haven't
+	"isn":     {}, // isn't
+	"mustn":   {}, // mustn't
+	"shan":    {}, // shan't
+	"shouldn": {}, // shouldn't
+	"wasn":    {}, // wasn't
+	"weren":   {}, // weren't
+	"won":     {}, // won't
+	"wouldn":  {}, // wouldn't
+	"ll":      {}, // he'll, she'll, i'll, you'll, we'll, they'll
+	"ve":      {}, // i've, you've, we've, they've
+	"re":      {}, // you're, we're, they're
+}
+
 // IsStopword checks if a word is in the English stopword list.
+// It also checks split-form fragments of apostrophe-containing stopwords.
 func IsStopword(word string) bool {
-	_, ok := englishStopwords[word]
+	if _, ok := englishStopwords[word]; ok {
+		return true
+	}
+	_, ok := splitFormStopwords[word]
 	return ok
 }

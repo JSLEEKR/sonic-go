@@ -4,6 +4,8 @@
 package search
 
 import (
+	"sort"
+
 	"github.com/JSLEEKR/sonic-go/pkg/lexer"
 	"github.com/JSLEEKR/sonic-go/pkg/store"
 	"github.com/JSLEEKR/sonic-go/pkg/suggest"
@@ -88,9 +90,15 @@ func (e *Engine) Query(collection, bucket, queryText string, opts QueryOptions) 
 	// Intersect all sets (AND mode)
 	result := intersect(iidSets)
 
-	// Convert IIDs to OIDs, maintaining order
-	var oids []string
+	// Convert IIDs to OIDs with deterministic ordering (sorted by IID ascending)
+	sortedIIDs := make([]uint32, 0, len(result))
 	for iid := range result {
+		sortedIIDs = append(sortedIIDs, iid)
+	}
+	sort.Slice(sortedIIDs, func(i, j int) bool { return sortedIIDs[i] < sortedIIDs[j] })
+
+	var oids []string
+	for _, iid := range sortedIIDs {
 		if oid, ok := e.store.GetOIDForIID(collection, bucket, iid); ok {
 			oids = append(oids, oid)
 		}
