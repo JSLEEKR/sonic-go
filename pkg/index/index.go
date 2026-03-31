@@ -61,6 +61,18 @@ func (idx *Index) Pop(collection, bucket, oid, text string) int {
 	if text == "" {
 		// Remove all terms for this object
 		terms := idx.store.RemoveObject(collection, bucket, oid)
+
+		// Clean up trie entries for terms that are now empty
+		for _, th := range terms {
+			iids := idx.store.GetTermIIDs(collection, bucket, th)
+			if len(iids) == 0 {
+				if word, ok := idx.store.GetWordForHash(collection, bucket, th); ok {
+					idx.trie.Remove(collection, bucket, word)
+					idx.store.RemoveHashWord(collection, bucket, th)
+				}
+			}
+		}
+
 		return len(terms)
 	}
 

@@ -185,6 +185,48 @@ func TestMultipleCollections(t *testing.T) {
 	}
 }
 
+func TestPopAllCleansUpTrie(t *testing.T) {
+	idx, _, tr := setupIndex(t)
+	idx.Push("col", "bkt", "doc1", "helicopter landing")
+
+	// Verify trie has the words
+	words := tr.AllWords("col", "bkt")
+	if len(words) == 0 {
+		t.Fatal("expected words in trie after push")
+	}
+
+	// Pop all terms for doc1 (text="") — trie should be cleaned up
+	count := idx.Pop("col", "bkt", "doc1", "")
+	if count == 0 {
+		t.Fatal("expected non-zero pop count")
+	}
+
+	words = tr.AllWords("col", "bkt")
+	if len(words) != 0 {
+		t.Errorf("expected 0 words in trie after popping only object, got %v", words)
+	}
+}
+
+func TestPopAllTriePreservesSharedTerms(t *testing.T) {
+	idx, _, tr := setupIndex(t)
+	idx.Push("col", "bkt", "doc1", "hello world")
+	idx.Push("col", "bkt", "doc2", "hello golang")
+
+	// Pop all for doc1 — "hello" is shared with doc2, should remain
+	idx.Pop("col", "bkt", "doc1", "")
+
+	words := tr.AllWords("col", "bkt")
+	found := false
+	for _, w := range words {
+		if w == "hello" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected 'hello' to remain in trie (shared by doc2), got %v", words)
+	}
+}
+
 func TestFlushObjectCleansUpTrie(t *testing.T) {
 	idx, _, tr := setupIndex(t)
 	idx.Push("col", "bkt", "doc1", "helicopter landing")
