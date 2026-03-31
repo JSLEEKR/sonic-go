@@ -270,6 +270,58 @@ func TestLevenshtein(t *testing.T) {
 	}
 }
 
+func TestTrieForceRemove(t *testing.T) {
+	tr := NewTrie()
+	// Insert same word 5 times (count=5)
+	for i := 0; i < 5; i++ {
+		tr.Insert("col", "bkt", "hello")
+	}
+
+	// Regular Remove only decrements count
+	tr.Remove("col", "bkt", "hello")
+	count := tr.WordCount("col", "bkt")
+	if count != 1 {
+		t.Errorf("expected 1 word after single Remove, got %d", count)
+	}
+
+	// Re-insert to restore count
+	tr.Insert("col", "bkt", "hello")
+
+	// ForceRemove should remove regardless of count
+	tr.ForceRemove("col", "bkt", "hello")
+	count = tr.WordCount("col", "bkt")
+	if count != 0 {
+		t.Errorf("expected 0 words after ForceRemove, got %d", count)
+	}
+
+	// Verify suggest returns nothing
+	results := tr.Suggest("col", "bkt", "hel", 10)
+	if len(results) != 0 {
+		t.Errorf("expected 0 suggestions after ForceRemove, got %v", results)
+	}
+}
+
+func TestTrieForceRemoveNonExistent(t *testing.T) {
+	tr := NewTrie()
+	removed := tr.ForceRemove("col", "bkt", "hello")
+	if removed {
+		t.Error("ForceRemove on empty trie should return false")
+	}
+}
+
+func TestTrieForceRemovePreservesOtherWords(t *testing.T) {
+	tr := NewTrie()
+	tr.Insert("col", "bkt", "hello")
+	tr.Insert("col", "bkt", "help")
+
+	tr.ForceRemove("col", "bkt", "hello")
+
+	results := tr.Suggest("col", "bkt", "hel", 10)
+	if len(results) != 1 || results[0] != "help" {
+		t.Errorf("expected [help], got %v", results)
+	}
+}
+
 func TestAutoDistance(t *testing.T) {
 	tests := []struct {
 		word     string

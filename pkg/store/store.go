@@ -250,6 +250,16 @@ func (s *Store) RemoveHashWord(collection, bucket string, termHash uint32) {
 	delete(s.hashToWord, hashWordKey(collection, bucket, termHash))
 }
 
+// RemoveOIDMapping removes only the OID<->IID mappings for an object,
+// without touching the term index. Used when partial Pop has already
+// removed all terms individually.
+func (s *Store) RemoveOIDMapping(collection, bucket, oid string, iid uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.oidToIID, oidKey(collection, bucket, oid))
+	delete(s.iidToOID, iidOIDKey(collection, bucket, iid))
+}
+
 // --- Object removal ---
 
 // RemoveObject removes all index entries for an OID.

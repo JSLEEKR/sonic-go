@@ -246,6 +246,58 @@ func TestFlushObjectCleansUpTrie(t *testing.T) {
 	}
 }
 
+func TestPopPartialRemovesOrphanedOID(t *testing.T) {
+	idx, s, _ := setupIndex(t)
+	idx.Push("col", "bkt", "doc1", "helicopter landing")
+
+	// Pop all terms via partial pop (specifying exact text)
+	idx.Pop("col", "bkt", "doc1", "helicopter landing")
+
+	// doc1 should no longer exist in OID mappings
+	_, ok := s.GetIIDForOID("col", "bkt", "doc1")
+	if ok {
+		t.Error("doc1 OID should be removed after all terms are popped via partial pop")
+	}
+
+	// Count should be 0
+	count := idx.Count("col", "bkt")
+	if count != 0 {
+		t.Errorf("expected count 0 after removing all terms, got %d", count)
+	}
+}
+
+func TestPopPartialTrieCleanupWithMultipleDocs(t *testing.T) {
+	idx, _, tr := setupIndex(t)
+	idx.Push("col", "bkt", "doc1", "hello world")
+	idx.Push("col", "bkt", "doc2", "hello golang")
+
+	// Pop "hello" from doc1
+	idx.Pop("col", "bkt", "doc1", "hello")
+
+	// "hello" should still be in trie (doc2 still has it)
+	words := tr.AllWords("col", "bkt")
+	foundHello := false
+	for _, w := range words {
+		if w == "hello" {
+			foundHello = true
+		}
+	}
+	if !foundHello {
+		t.Error("hello should remain in trie while doc2 still has it")
+	}
+
+	// Pop "hello" from doc2 - now no document has "hello"
+	idx.Pop("col", "bkt", "doc2", "hello")
+
+	// "hello" should be GONE from trie
+	words = tr.AllWords("col", "bkt")
+	for _, w := range words {
+		if w == "hello" {
+			t.Error("hello should be removed from trie after all documents popped it")
+		}
+	}
+}
+
 func TestFlushObjectTriePreservesSharedTerms(t *testing.T) {
 	idx, _, tr := setupIndex(t)
 	idx.Push("col", "bkt", "doc1", "hello world")

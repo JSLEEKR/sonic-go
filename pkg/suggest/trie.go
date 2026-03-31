@@ -116,6 +116,52 @@ func (t *Trie) removeHelper(node *trieNode, runes []rune, depth int) bool {
 	return false
 }
 
+// ForceRemove completely removes a word from the trie regardless of its
+// insertion count. This is used when the inverted index confirms no documents
+// reference the term anymore.
+func (t *Trie) ForceRemove(collection, bucket, word string) bool {
+	word = strings.ToLower(word)
+	if word == "" {
+		return false
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	key := bucketKey(collection, bucket)
+	root, ok := t.roots[key]
+	if !ok {
+		return false
+	}
+
+	return t.forceRemoveHelper(root, []rune(word), 0)
+}
+
+func (t *Trie) forceRemoveHelper(node *trieNode, runes []rune, depth int) bool {
+	if depth == len(runes) {
+		if !node.isEnd {
+			return false
+		}
+		node.isEnd = false
+		node.count = 0
+		return len(node.children) == 0
+	}
+
+	ch := runes[depth]
+	child, ok := node.children[ch]
+	if !ok {
+		return false
+	}
+
+	shouldDelete := t.forceRemoveHelper(child, runes, depth+1)
+	if shouldDelete {
+		delete(node.children, ch)
+		return len(node.children) == 0 && !node.isEnd
+	}
+
+	return false
+}
+
 // Suggest returns up to limit words that start with the given prefix.
 func (t *Trie) Suggest(collection, bucket, prefix string, limit int) []string {
 	prefix = strings.ToLower(prefix)

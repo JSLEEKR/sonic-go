@@ -67,7 +67,7 @@ func (idx *Index) Pop(collection, bucket, oid, text string) int {
 			iids := idx.store.GetTermIIDs(collection, bucket, th)
 			if len(iids) == 0 {
 				if word, ok := idx.store.GetWordForHash(collection, bucket, th); ok {
-					idx.trie.Remove(collection, bucket, word)
+					idx.trie.ForceRemove(collection, bucket, word)
 					idx.store.RemoveHashWord(collection, bucket, th)
 				}
 			}
@@ -83,7 +83,7 @@ func (idx *Index) Pop(collection, bucket, oid, text string) int {
 	for _, tok := range tokens {
 		empty := idx.store.RemoveTermIID(collection, bucket, tok.Hash, iid)
 		if empty {
-			idx.trie.Remove(collection, bucket, tok.Word)
+			idx.trie.ForceRemove(collection, bucket, tok.Word)
 			idx.store.RemoveHashWord(collection, bucket, tok.Hash)
 		}
 		removed++
@@ -103,6 +103,11 @@ func (idx *Index) Pop(collection, bucket, oid, text string) int {
 		}
 	}
 	idx.store.SetIIDTerms(collection, bucket, iid, remaining)
+
+	// If no terms remain, clean up the OID/IID mappings
+	if len(remaining) == 0 {
+		idx.store.RemoveOIDMapping(collection, bucket, oid, iid)
+	}
 
 	return removed
 }
@@ -135,7 +140,7 @@ func (idx *Index) FlushObject(collection, bucket, oid string) int {
 			// Term has no more references; look up the original word
 			// via our hash-to-word map and remove from trie.
 			if word, ok := idx.store.GetWordForHash(collection, bucket, th); ok {
-				idx.trie.Remove(collection, bucket, word)
+				idx.trie.ForceRemove(collection, bucket, word)
 				idx.store.RemoveHashWord(collection, bucket, th)
 			}
 		}
